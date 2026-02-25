@@ -81,7 +81,7 @@ func renderHeader() {
 
 func initPaths() {
 	var err error
-	srcPath, err = os.MkdirTemp("", ".bpb-wizard")
+	srcPath, err = os.MkdirTemp("", ".clashfa-wizard")
 	if err != nil {
 		failMessage("Failed to create temp directory.")
 		log.Fatalln(err)

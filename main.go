@@ -12,12 +12,17 @@ import (
 )
 
 var (
-	srcPath    string
-	workerPath string
-	cachePath  string
-	isAndroid  = false
-	workerURL  = "https://github.com/bia-pain-bache/BPB-Worker-Panel/releases/latest/download/worker.js"
-	VERSION    = "dev"
+	srcPath           string
+	workerPath        string
+	cachePath         string
+	isAndroid         = false
+	VERSION           = "dev"
+	defaultWorkerURLs = []string{
+		"https://raw.githubusercontent.com/10ium/free-config/main/worker/iptv_player.txt",
+		"https://raw.githubusercontent.com/10ium/free-config/main/worker/ClashFa_Mirror_Pro.txt",
+		"https://raw.githubusercontent.com/10ium/free-config/main/worker/great_mihomo_converter_v2%2Bui.txt",
+		"https://raw.githubusercontent.com/10ium/free-config/main/worker/iran_proxy.txt",
+	}
 )
 
 func init() {

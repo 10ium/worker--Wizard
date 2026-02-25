@@ -133,7 +133,7 @@ func (sp ScriptUpdateParams) MarshalMultipart() ([]byte, string, error) {
 	return body.Bytes(), writer.FormDataContentType(), nil
 }
 
-func createWorker(ctx context.Context, name string, uid string, pass string, proxy string, nat64Prefix string, fallback string, sub string, kv *kv.Namespace) (*workers.ScriptUpdateResponse, error) {
+func createWorker(ctx context.Context, name string, kv *kv.Namespace) (*workers.ScriptUpdateResponse, error) {
 
 	envVars := []map[string]string{
 		{
@@ -141,45 +141,6 @@ func createWorker(ctx context.Context, name string, uid string, pass string, pro
 			"namespace_id": kv.ID,
 			"type":         "kv_namespace",
 		},
-		{
-			"name": "UUID",
-			"text": uid,
-			"type": "plain_text",
-		},
-		{
-			"name": "TR_PASS",
-			"text": pass,
-			"type": "plain_text",
-		},
-		{
-			"name": "SUB_PATH",
-			"text": sub,
-			"type": "plain_text",
-		},
-	}
-
-	if proxy != "" {
-		envVars = append(envVars, map[string]string{
-			"name": "PROXY_IP",
-			"text": proxy,
-			"type": "plain_text",
-		})
-	}
-
-	if nat64Prefix != "" {
-		envVars = append(envVars, map[string]string{
-			"name": "PREFIX",
-			"text": nat64Prefix,
-			"type": "plain_text",
-		})
-	}
-
-	if fallback != "" {
-		envVars = append(envVars, map[string]string{
-			"name": "FALLBACK",
-			"text": fallback,
-			"type": "plain_text",
-		})
 	}
 
 	param := ScriptUpdateParams{
@@ -351,12 +312,6 @@ func updateWorker(ctx context.Context, name string) error {
 func deployWorker(
 	ctx context.Context,
 	name string,
-	uid string,
-	pass string,
-	proxy string,
-	nat64Prefix string,
-	fallback string,
-	sub string,
 	kvNamespace *kv.Namespace,
 	customDomain string,
 ) (
@@ -366,7 +321,7 @@ func deployWorker(
 	for {
 		fmt.Printf("\n%s Creating Worker...\n", title)
 
-		_, err := createWorker(ctx, name, uid, pass, proxy, nat64Prefix, fallback, sub, kvNamespace)
+		_, err := createWorker(ctx, name, kvNamespace)
 		if err != nil {
 			failMessage("Failed to deploy worker.")
 			log.Printf("%v\n\n", err)
@@ -408,7 +363,7 @@ func deployWorker(
 			}
 
 			successMessage("Custom domain added to worker successfully!")
-			return "https://" + customDomain + "/panel", nil
+			return "https://" + customDomain, nil
 		}
 	}
 
@@ -417,5 +372,5 @@ func deployWorker(
 		return "", fmt.Errorf("error getting worker subdomain - %w", err)
 	}
 
-	return "https://" + name + "." + resp.Subdomain + ".workers.dev/panel", nil
+	return "https://" + name + "." + resp.Subdomain + ".workers.dev", nil
 }

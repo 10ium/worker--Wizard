@@ -90,52 +90,12 @@ func (pdp projectDeploymentNewParams) MarshalMultipart() ([]byte, string, error)
 func createPagesProject(
 	ctx context.Context,
 	name string,
-	uid string,
-	pass string,
-	proxy string,
-	nat64Prefix string,
-	fallback string,
-	sub string,
 	kv *kv.Namespace,
 ) (
 	*pages.Project,
 	error,
 ) {
-	envVars := map[string]pages.ProjectDeploymentConfigsProductionEnvVarsUnionParam{
-		"UUID": pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarParam{
-			Type:  cf.F(pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarTypePlainText),
-			Value: cf.F(uid),
-		},
-		"TR_PASS": pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarParam{
-			Type:  cf.F(pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarTypePlainText),
-			Value: cf.F(pass),
-		},
-		"SUB_PATH": pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarParam{
-			Type:  cf.F(pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarTypePlainText),
-			Value: cf.F(sub),
-		},
-	}
-
-	if proxy != "" {
-		envVars["PROXY_IP"] = pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarParam{
-			Type:  cf.F(pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarTypePlainText),
-			Value: cf.F(proxy),
-		}
-	}
-
-	if nat64Prefix != "" {
-		envVars["PREFIX"] = pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarParam{
-			Type:  cf.F(pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarTypePlainText),
-			Value: cf.F(nat64Prefix),
-		}
-	}
-
-	if fallback != "" {
-		envVars["FALLBACK"] = pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarParam{
-			Type:  cf.F(pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarTypePlainText),
-			Value: cf.F(fallback),
-		}
-	}
+	envVars := map[string]pages.ProjectDeploymentConfigsProductionEnvVarsUnionParam{}
 
 	project, err := cfClient.Pages.Projects.New(
 		ctx,
@@ -360,12 +320,6 @@ func updatePagesProject(ctx context.Context, projectName string) error {
 func deployPagesProject(
 	ctx context.Context,
 	name string,
-	uid string,
-	pass string,
-	proxy string,
-	nat64Prefix string,
-	fallback string,
-	sub string,
 	kvNamespace *kv.Namespace,
 	customDomain string,
 ) (
@@ -378,7 +332,7 @@ func deployPagesProject(
 	for {
 		fmt.Printf("\n%s Creating Pages project...\n", title)
 
-		project, err = createPagesProject(ctx, name, uid, pass, proxy, nat64Prefix, fallback, sub, kvNamespace)
+		project, err = createPagesProject(ctx, name, kvNamespace)
 		if err != nil {
 			failMessage("Failed to create project.")
 			log.Printf("%v\n\n", err)
@@ -423,10 +377,10 @@ func deployPagesProject(
 
 			successMessage("Custom domain added to pages successfully!")
 			fmt.Printf("%s %s: You should create a CNAME record with Name: %s and Target: %s, Otherwise your Custom Domain will not work.\n", info, warning, fmtStr(recordName, GREEN, true), fmtStr(name+".pages.dev", GREEN, true))
-			return "https://" + customDomain + "/panel", nil
+			return "https://" + customDomain, nil
 		}
 	}
 
 	successMessage("It takes up to 5 minutes to access panel, please wait...")
-	return "https://" + project.Subdomain + "/panel", nil
+	return "https://" + project.Subdomain, nil
 }
