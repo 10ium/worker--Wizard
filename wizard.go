@@ -42,6 +42,16 @@ type Panel struct {
 	Type string
 }
 
+type LegacyWorkerConfig struct {
+	Enabled     bool
+	UID         string
+	Pass        string
+	Proxy       string
+	Nat64Prefix string
+	Fallback    string
+	SubPath     string
+}
+
 const (
 	CharsetAlphaNumeric      = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 	CharsetSpecialCharacters = "!@#$%^&*()_+[]{}|;:',.<>?"
@@ -404,8 +414,8 @@ func createPanel() {
 		deployType = DTPage
 	}
 
-	workerSourceURL, workerSourceName := selectWorkerSource(deployType)
-	fmt.Printf("\n%s Worker source selected: %s (%s)\n", info, fmtStr(workerSourceName, GREEN, true), fmtStr(workerSourceURL, ORANGE, true))
+	workerSource := selectWorkerSource(deployType)
+	fmt.Printf("\n%s Worker source selected: %s (%s)\n", info, fmtStr(workerSource.Name, GREEN, true), fmtStr(workerSource.URL, ORANGE, true))
 
 	var projectName string
 	for {
@@ -466,17 +476,19 @@ func createPanel() {
 		break
 	}
 
-	if err := downloadWorker(workerSourceURL); err != nil {
+	if err := downloadWorker(workerSource.URL); err != nil {
 		failMessage("Failed to download worker source file")
 		log.Fatalln(err)
 	}
 
+	legacyConfig := collectLegacyWorkerConfig(workerSource)
+
 	var panel string
 	switch deployType {
 	case DTWorker:
-		panel, err = deployWorker(ctx, projectName, kvNamespace, customDomain)
+		panel, err = deployWorker(ctx, projectName, kvNamespace, customDomain, legacyConfig)
 	case DTPage:
-		panel, err = deployPagesProject(ctx, projectName, kvNamespace, customDomain)
+		panel, err = deployPagesProject(ctx, projectName, kvNamespace, customDomain, legacyConfig)
 	}
 
 	if err != nil {
@@ -490,9 +502,16 @@ func createPanel() {
 	}
 }
 
-func selectWorkerSource(deployType DeployType) (url string, name string) {
+func selectWorkerSource(deployType DeployType) WorkerSource {
 	if deployType == DTPage {
-		fmt.Printf("\n%s Pages mode selected. Please enter your worker source URL.\n", info)
+		fmt.Printf("\n%s Pages mode selected.\n", info)
+		fmt.Printf("1- %s (%s)\n", workerSources[0].Name, workerSources[0].URL)
+		fmt.Printf("2- Enter custom worker file URL\n")
+		selection := promptUser("\n- Select worker source: ", []string{"1", "2"})
+		if selection == "1" {
+			return workerSources[0]
+		}
+
 		for {
 			customURL := promptUser("- Enter the raw URL of your worker file: ", nil)
 			if customURL == "" {
@@ -505,26 +524,25 @@ func selectWorkerSource(deployType DeployType) (url string, name string) {
 				continue
 			}
 
-			return customURL, "Custom"
+			return WorkerSource{Name: "Custom", URL: customURL}
 		}
 	}
 
 	fmt.Printf("\n%s Select worker source file:\n", title)
-	for i, sourceURL := range defaultWorkerURLs {
-		fmt.Printf("%d- %s\n", i+1, sourceURL)
+	for i, source := range workerSources {
+		fmt.Printf("%d- %s (%s)\n", i+1, source.Name, source.URL)
 	}
-	fmt.Printf("%d- Enter custom worker file URL\n", len(defaultWorkerURLs)+1)
+	fmt.Printf("%d- Enter custom worker file URL\n", len(workerSources)+1)
 
-	validAnswers := make([]string, 0, len(defaultWorkerURLs)+1)
-	for i := range len(defaultWorkerURLs) + 1 {
+	validAnswers := make([]string, 0, len(workerSources)+1)
+	for i := range len(workerSources) + 1 {
 		validAnswers = append(validAnswers, strconv.Itoa(i+1))
 	}
 
 	selection := promptUser("\n- Select worker source: ", validAnswers)
 	selectionIndex, _ := strconv.Atoi(selection)
-	if selectionIndex <= len(defaultWorkerURLs) {
-		sourceURL := defaultWorkerURLs[selectionIndex-1]
-		return sourceURL, fmt.Sprintf("Default #%d", selectionIndex)
+	if selectionIndex <= len(workerSources) {
+		return workerSources[selectionIndex-1]
 	}
 
 	for {
@@ -539,8 +557,72 @@ func selectWorkerSource(deployType DeployType) (url string, name string) {
 			continue
 		}
 
-		return customURL, "Custom"
+		return WorkerSource{Name: "Custom", URL: customURL}
 	}
+}
+
+func collectLegacyWorkerConfig(source WorkerSource) LegacyWorkerConfig {
+	if !source.IsLegacy {
+		return LegacyWorkerConfig{}
+	}
+
+	config := LegacyWorkerConfig{Enabled: true}
+
+	uid := generateRandomString(CharsetAlphaNumeric, 36, false)
+	fmt.Printf("\n%s Legacy mode enabled for original worker.\n", info)
+	fmt.Printf("%s The random generated %s is: %s", info, fmtStr("UUID", GREEN, true), fmtStr(uid, ORANGE, true))
+	for {
+		if response := promptUser("- Please enter a custom uid or press ENTER to use generated one: ", nil); response != "" {
+			uid = response
+		}
+		break
+	}
+	config.UID = uid
+
+	trPass := generateTrPassword(12)
+	fmt.Printf("\n%s The random generated %s is: %s", info, fmtStr("Trojan password", GREEN, true), fmtStr(trPass, ORANGE, true))
+	for {
+		if response := promptUser("- Please enter a custom Trojan password or press ENTER to use generated one: ", nil); response != "" {
+			if !isValidTrPassword(response) {
+				failMessage("Trojan password cannot contain none standard character! Please try again.")
+				continue
+			}
+			trPass = response
+		}
+		break
+	}
+	config.Pass = trPass
+
+	fmt.Printf("\n%s The default %s is: %s", info, fmtStr("Proxy IP", GREEN, true), fmtStr("bpb.yousef.isegaro.com", ORANGE, true))
+	if response := promptUser("- Please enter custom Proxy IP/Domains or press ENTER to use default: ", nil); response != "" {
+		config.Proxy = response
+	}
+
+	fmt.Printf("\n%s The default %s are listed here: %s", info, fmtStr("Nat64 Prefixes", GREEN, true), fmtStr("https://github.com/bia-pain-bache/BPB-Worker-Panel/blob/main/NAT64Prefixes.md", ORANGE, true))
+	if response := promptUser("- Please enter custom NAT64 Prefixes or press ENTER to use default: ", nil); response != "" {
+		config.Nat64Prefix = response
+	}
+
+	fmt.Printf("\n%s The default %s is: %s", info, fmtStr("Fallback domain", GREEN, true), fmtStr("speed.cloudflare.com", ORANGE, true))
+	if response := promptUser("- Please enter a custom Fallback domain or press ENTER to use default: ", nil); response != "" {
+		config.Fallback = response
+	}
+
+	subPath := generateSubURIPath(16)
+	fmt.Printf("\n%s The random generated %s is: %s", info, fmtStr("Subscription path", GREEN, true), fmtStr(subPath, ORANGE, true))
+	for {
+		if response := promptUser("- Please enter a custom Subscription path or press ENTER to use generated one: ", nil); response != "" {
+			if !isValidSubURIPath(response) {
+				failMessage("URI cannot contain none standard character! Please try again.")
+				continue
+			}
+			subPath = response
+		}
+		break
+	}
+	config.SubPath = subPath
+
+	return config
 }
 
 func modifyPanel() {
@@ -625,9 +707,9 @@ func modifyPanel() {
 				if panelType == "workers" {
 					selectedDeployType = DTWorker
 				}
-				workerSourceURL, workerSourceName := selectWorkerSource(selectedDeployType)
-				fmt.Printf("\n%s Worker source selected for update: %s (%s)\n", info, fmtStr(workerSourceName, GREEN, true), fmtStr(workerSourceURL, ORANGE, true))
-				if err := downloadWorker(workerSourceURL); err != nil {
+				workerSource := selectWorkerSource(selectedDeployType)
+				fmt.Printf("\n%s Worker source selected for update: %s (%s)\n", info, fmtStr(workerSource.Name, GREEN, true), fmtStr(workerSource.URL, ORANGE, true))
+				if err := downloadWorker(workerSource.URL); err != nil {
 					failMessage("Failed to download worker source file")
 					log.Fatalln(err)
 				}
