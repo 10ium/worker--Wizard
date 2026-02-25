@@ -133,7 +133,7 @@ func (sp ScriptUpdateParams) MarshalMultipart() ([]byte, string, error) {
 	return body.Bytes(), writer.FormDataContentType(), nil
 }
 
-func createWorker(ctx context.Context, name string, kv *kv.Namespace) (*workers.ScriptUpdateResponse, error) {
+func createWorker(ctx context.Context, name string, kv *kv.Namespace, legacy LegacyWorkerConfig) (*workers.ScriptUpdateResponse, error) {
 
 	envVars := []map[string]string{
 		{
@@ -141,6 +141,24 @@ func createWorker(ctx context.Context, name string, kv *kv.Namespace) (*workers.
 			"namespace_id": kv.ID,
 			"type":         "kv_namespace",
 		},
+	}
+
+	if legacy.Enabled {
+		envVars = append(envVars,
+			map[string]string{"name": "UUID", "text": legacy.UID, "type": "plain_text"},
+			map[string]string{"name": "TR_PASS", "text": legacy.Pass, "type": "plain_text"},
+			map[string]string{"name": "SUB_PATH", "text": legacy.SubPath, "type": "plain_text"},
+		)
+
+		if legacy.Proxy != "" {
+			envVars = append(envVars, map[string]string{"name": "PROXY_IP", "text": legacy.Proxy, "type": "plain_text"})
+		}
+		if legacy.Nat64Prefix != "" {
+			envVars = append(envVars, map[string]string{"name": "PREFIX", "text": legacy.Nat64Prefix, "type": "plain_text"})
+		}
+		if legacy.Fallback != "" {
+			envVars = append(envVars, map[string]string{"name": "FALLBACK", "text": legacy.Fallback, "type": "plain_text"})
+		}
 	}
 
 	param := ScriptUpdateParams{
@@ -314,6 +332,7 @@ func deployWorker(
 	name string,
 	kvNamespace *kv.Namespace,
 	customDomain string,
+	legacy LegacyWorkerConfig,
 ) (
 	panelURL string,
 	err error,
@@ -321,7 +340,7 @@ func deployWorker(
 	for {
 		fmt.Printf("\n%s Creating Worker...\n", title)
 
-		_, err := createWorker(ctx, name, kvNamespace)
+		_, err := createWorker(ctx, name, kvNamespace, legacy)
 		if err != nil {
 			failMessage("Failed to deploy worker.")
 			log.Printf("%v\n\n", err)
@@ -363,6 +382,9 @@ func deployWorker(
 			}
 
 			successMessage("Custom domain added to worker successfully!")
+			if legacy.Enabled {
+				return "https://" + customDomain + "/panel", nil
+			}
 			return "https://" + customDomain, nil
 		}
 	}
@@ -372,5 +394,8 @@ func deployWorker(
 		return "", fmt.Errorf("error getting worker subdomain - %w", err)
 	}
 
+	if legacy.Enabled {
+		return "https://" + name + "." + resp.Subdomain + ".workers.dev/panel", nil
+	}
 	return "https://" + name + "." + resp.Subdomain + ".workers.dev", nil
 }
