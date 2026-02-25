@@ -11,13 +11,41 @@ import (
 	"time"
 )
 
+type WorkerSource struct {
+	Name     string
+	URL      string
+	IsLegacy bool
+}
+
 var (
-	srcPath    string
-	workerPath string
-	cachePath  string
-	isAndroid  = false
-	workerURL  = "https://github.com/bia-pain-bache/BPB-Worker-Panel/releases/latest/download/worker.js"
-	VERSION    = "dev"
+	srcPath       string
+	workerPath    string
+	cachePath     string
+	isAndroid     = false
+	VERSION       = "dev"
+	workerSources = []WorkerSource{
+		{
+			Name:     "Original BPB Worker (legacy mode)",
+			URL:      "https://github.com/bia-pain-bache/BPB-Worker-Panel/releases/latest/download/worker.js",
+			IsLegacy: true,
+		},
+		{
+			Name: "iptv_player",
+			URL:  "https://raw.githubusercontent.com/10ium/free-config/main/worker/iptv_player.txt",
+		},
+		{
+			Name: "ClashFa_Mirror_Pro",
+			URL:  "https://raw.githubusercontent.com/10ium/free-config/main/worker/ClashFa_Mirror_Pro.txt",
+		},
+		{
+			Name: "great_mihomo_converter_v2+ui",
+			URL:  "https://raw.githubusercontent.com/10ium/free-config/main/worker/great_mihomo_converter_v2%2Bui.txt",
+		},
+		{
+			Name: "iran_proxy",
+			URL:  "https://raw.githubusercontent.com/10ium/free-config/main/worker/iran_proxy.txt",
+		},
+	}
 )
 
 func init() {
