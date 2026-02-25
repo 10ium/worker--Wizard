@@ -363,7 +363,7 @@ func deployWorker(
 			}
 
 			successMessage("Custom domain added to worker successfully!")
-			return "https://" + customDomain + "/panel", nil
+			return "https://" + customDomain, nil
 		}
 	}
 
@@ -372,5 +372,5 @@ func deployWorker(
 		return "", fmt.Errorf("error getting worker subdomain - %w", err)
 	}
 
-	return "https://" + name + "." + resp.Subdomain + ".workers.dev/panel", nil
+	return "https://" + name + "." + resp.Subdomain + ".workers.dev", nil
 }

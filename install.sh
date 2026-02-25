@@ -15,9 +15,9 @@ case "$ARCH" in
     *)             echo "Unsupported architecture: $ARCH" && exit 1 ;;
 esac
 
-BINARY="BPB-Wizard"
+BINARY="ClashFa-Wizard"
 ARCHIVE="${BINARY}-${OS}-${ARCH}.tar.gz"
-LATEST_VERSION=$(curl -fsSL https://raw.githubusercontent.com/bia-pain-bache/BPB-Wizard/main/VERSION)
+LATEST_VERSION=$(curl -fsSL https://raw.githubusercontent.com/10ium/worker--Wizard/main/VERSION)
 
 if [ -x "./${BINARY}" ]; then
     INSTALLED_VERSION=$("./${BINARY}" --version)
@@ -35,7 +35,7 @@ else
 fi
 
 echo "Downloading ${ARCHIVE}..."
-curl -L -# -o "${ARCHIVE}" "https://github.com/bia-pain-bache/BPB-Wizard/releases/latest/download/${ARCHIVE}" && \
+curl -L -# -o "${ARCHIVE}" "https://github.com/10ium/worker--Wizard/releases/latest/download/${ARCHIVE}" && \
 tar xzf "${ARCHIVE}" && \
 chmod +x "./${BINARY}" && \
 exec ./"${BINARY}"
