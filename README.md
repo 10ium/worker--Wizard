@@ -1,6 +1,6 @@
-<h1 align="center">💦 BPB Wizard</h1>
+<h1 align="center">💦 ClashFa Wizard</h1>
 
-This project aims to facilitate the deployment and management process of [BPB Panel](https://github.com/bia-pain-bache/BPB-Worker-Panel) and prevent user mistakes during deployments. It supports both Workers and Pages methods and is highly recommended to use.
+This project aims to facilitate the deployment and management process of [ClashFa Panel](https://github.com/10ium/free-config) and prevent user mistakes during deployments. It supports both Workers and Pages methods and is highly recommended to use.
 
 <p align="center">
   <img src="assets/wizard.jpg">
@@ -13,14 +13,14 @@ This project aims to facilitate the deployment and management process of [BPB Pa
 
 To use this method, all you need is a Cloudflare account. You can [sign up here](https://dash.cloudflare.com/sign-up/), and don’t forget to check your email afterward to verify your account.
 
-### 2. Install or modify BPB Panel
+### 2. Install or modify ClashFa Panel
 
 > [!WARNING]
 > If you're connected to a VPN, disconnect it.
 
 #### Windows - macOS
 
-Based on your operating system, [download the ZIP file](https://github.com/bia-pain-bache/BPB-Wizard/releases/latest), unzip it, and run the program.
+Based on your operating system, [download the ZIP file](https://github.com/10ium/worker--Wizard/releases/latest), unzip it, and run the program.
 
 > [!IMPORTANT]  
 > This program downloads `worker.js` from github to deploy to Cloudflare and is not signed by a certificate. This makes Anti Viruses detect it as some kind of Trojan/Downloader threat. You have to disable your Anti Virus before running the program.
@@ -30,7 +30,7 @@ Based on your operating system, [download the ZIP file](https://github.com/bia-p
 Android users who have Termux installed on their device and Linux users can use this bash:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/bia-pain-bache/BPB-Wizard/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/10ium/worker--Wizard/main/install.sh)
 ```
 
 > [!IMPORTANT]  
