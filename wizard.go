@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cloudflare/cloudflare-go/v4/kv"
+	"github.com/google/uuid"
 )
 
 type DeployType int
@@ -568,11 +569,15 @@ func collectLegacyWorkerConfig(source WorkerSource) LegacyWorkerConfig {
 
 	config := LegacyWorkerConfig{Enabled: true}
 
-	uid := generateRandomString(CharsetAlphaNumeric, 36, false)
+	uid := uuid.NewString()
 	fmt.Printf("\n%s Legacy mode enabled for original worker.\n", info)
 	fmt.Printf("%s The random generated %s is: %s", info, fmtStr("UUID", GREEN, true), fmtStr(uid, ORANGE, true))
 	for {
 		if response := promptUser("- Please enter a custom uid or press ENTER to use generated one: ", nil); response != "" {
+			if _, err := uuid.Parse(response); err != nil {
+				failMessage("UUID is not standard, please try again.")
+				continue
+			}
 			uid = response
 		}
 		break
