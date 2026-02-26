@@ -1,52 +1,103 @@
-<h1 align="center">💦 ClashFa Wizard</h1>
+<div dir="rtl" align="right">
 
-This project aims to facilitate the deployment and management process of [ClashFa Panel](https://github.com/10ium/free-config) and prevent user mistakes during deployments. It supports both Workers and Pages methods and is highly recommended to use.
+# ClashFa Wizard
 
-<p align="center">
-  <img src="assets/wizard.jpg">
-</p>
-<br>
+ابزار **ClashFa Wizard** برای دیپلوی و مدیریت Worker/Pages روی Cloudflare ساخته شده تا فرآیند راه‌اندازی ساده‌تر شود و خطاهای رایج کمتر شوند.
 
-## 💡 How to use
+> این پروژه یک فورک/نسخه سفارشی‌شده است و متناسب با نیازهای ClashFa به‌روزرسانی شده است.
 
-### 1. Cloudflare account
+---
 
-To use this method, all you need is a Cloudflare account. You can [sign up here](https://dash.cloudflare.com/sign-up/), and don’t forget to check your email afterward to verify your account.
+## ✨ امکانات
 
-### 2. Install or modify ClashFa Panel
+- دیپلوی با دو روش:
+  - **Cloudflare Workers**
+  - **Cloudflare Pages**
+- انتخاب سورس Worker در زمان اجرا:
+  - Worker اصلی (Legacy)
+  - لیست Workerهای پیش‌فرض پروژه
+  - لینک سفارشی کاربر
+- آپلود نهایی همیشه با نام `worker.js` برای سازگاری با Cloudflare
+- پشتیبانی از حالت **Legacy** فقط برای Worker اصلی:
+  - اعمال تنظیمات و Environmentهای قدیمی
+  - برگرداندن لینک نهایی با `/panel`
+- برای Workerهای جدید/سفارشی:
+  - دیپلوی ساده‌تر
+  - بدون وابستگی به تنظیمات Legacy
 
-> [!WARNING]
-> If you're connected to a VPN, disconnect it.
+---
 
-#### Windows - macOS
+## 🔗 Worker Sourceهای پیش‌فرض
 
-Based on your operating system, [download the ZIP file](https://github.com/10ium/worker--Wizard/releases/latest), unzip it, and run the program.
+- `https://raw.githubusercontent.com/10ium/free-config/main/worker/iptv_player.txt`
+- `https://raw.githubusercontent.com/10ium/free-config/main/worker/ClashFa_Mirror_Pro.txt`
+- `https://raw.githubusercontent.com/10ium/free-config/refs/heads/main/worker/great_mihomo_converter`
+- `https://raw.githubusercontent.com/10ium/free-config/main/worker/iran_proxy.txt`
 
-> [!IMPORTANT]  
-> This program downloads `worker.js` from github to deploy to Cloudflare and is not signed by a certificate. This makes Anti Viruses detect it as some kind of Trojan/Downloader threat. You have to disable your Anti Virus before running the program.
+> در حالت **Pages**، لینک‌های پیش‌فرض فقط برای سناریوی تعریف‌شده نمایش داده می‌شوند و امکان وارد کردن لینک سفارشی هم وجود دارد.
 
-#### Android (Termux) - Linux
+---
 
-Android users who have Termux installed on their device and Linux users can use this bash:
+## 🧩 پیش‌نیازها
+
+- یک اکانت Cloudflare
+- اتصال اینترنت پایدار
+- قطع بودن VPN (در صورت بروز مشکل DNS/Login)
+
+---
+
+## 🚀 نصب و اجرا
+
+### Windows / macOS
+
+آخرین نسخه را از بخش Release همین مخزن دانلود و اجرا کنید.
+
+### Linux / Android (Termux)
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/10ium/worker--Wizard/main/install.sh)
 ```
 
-> [!IMPORTANT]  
-> Be sure to download and install Termux only from its [official source](https://github.com/termux/termux-app/releases/latest). Installing via Google Play might cause issues.
+---
 
-The first question asks whether you want to create a new panel or modify existing panels in the account.
+## 🛠️ نحوه استفاده
 
-Then logs into your Cloudflare account, return to the terminal and asks you a series of questions.
+1. برنامه را اجرا کنید.
+2. بین **Create** یا **Modify** انتخاب کنید.
+3. روش دیپلوی (**Workers** یا **Pages**) را انتخاب کنید.
+4. سورس Worker را انتخاب کنید (پیش‌فرض/Legacy/Custom).
+5. در صورت انتخاب Legacy، تنظیمات اضافی همان حالت پرسیده می‌شود.
+6. دیپلوی انجام می‌شود و لینک نهایی تحویل داده می‌شود.
 
-If you choose option 1, it will ask a series of configuration questions. You can use the default values or input your own. In the end, it opens the panel for you in your browser — that’s it.
+---
 
-> [!TIP]
-> For each setting it asks about, it has already generated a secure, personal value for you. You can simply press Enter to accept it and move on to the next question, or input your own values.
+## 🧪 Build برای توسعه‌دهنده
 
-If you choose option 2, it lists deployed Workers and Pages projects and you can choose which one to modify.
+```bash
+go build ./...
+go test ./...
+```
 
-## Updating Panel
+ساخت باینری خروجی (مثال):
 
-Just run wizard and select option 2 for the first question. It will show you a list of project names in your account — you can choose any to update to the latest stable version or delete.
+```bash
+make build VERSION=$(cat VERSION) GOOS=linux GOARCH=amd64
+```
+
+---
+
+## 🙏 تشکر
+
+از سازنده اصلی پروژه BPB Wizard بابت ایده و پیاده‌سازی اولیه بسیار متشکریم.
+
+این فورک برای سناریوهای ClashFa بازطراحی/اصلاح شده و بخشی از بهینه‌سازی‌ها با کمک **ChatGPT Codex** انجام شده است.
+
+---
+
+## 📘 English README
+
+نسخه کامل انگلیسی مستندات در فایل زیر قرار دارد:
+
+- [`README_EN.md`](./README_EN.md)
+
+</div>
