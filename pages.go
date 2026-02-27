@@ -14,7 +14,6 @@ import (
 	"time"
 
 	cf "github.com/cloudflare/cloudflare-go/v4"
-	"github.com/cloudflare/cloudflare-go/v4/kv"
 	"github.com/cloudflare/cloudflare-go/v4/option"
 	"github.com/cloudflare/cloudflare-go/v4/pages"
 )
@@ -90,13 +89,26 @@ func (pdp projectDeploymentNewParams) MarshalMultipart() ([]byte, string, error)
 func createPagesProject(
 	ctx context.Context,
 	name string,
-	kv *kv.Namespace,
+	bindingConfig WorkerBindingConfig,
 	legacy LegacyWorkerConfig,
 ) (
 	*pages.Project,
 	error,
 ) {
 	envVars := map[string]pages.ProjectDeploymentConfigsProductionEnvVarsUnionParam{}
+	kvNamespaces := map[string]pages.ProjectDeploymentConfigsProductionKVNamespaceParam{}
+
+	for bindingName, namespace := range bindingConfig.KVNamespaces {
+		kvNamespaces[bindingName] = pages.ProjectDeploymentConfigsProductionKVNamespaceParam{NamespaceID: cf.F(namespace.ID)}
+	}
+
+	for name, value := range bindingConfig.PlainVars {
+		envVars[name] = pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarParam{Type: cf.F(pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarTypePlainText), Value: cf.F(value)}
+	}
+
+	for name, value := range bindingConfig.SecretVars {
+		envVars[name] = pages.ProjectDeploymentConfigsProductionEnvVarsPagesSecretTextEnvVarParam{Type: cf.F(pages.ProjectDeploymentConfigsProductionEnvVarsPagesSecretTextEnvVarTypeSecretText), Value: cf.F(value)}
+	}
 
 	if legacy.Enabled {
 		envVars["UUID"] = pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarParam{Type: cf.F(pages.ProjectDeploymentConfigsProductionEnvVarsPagesPlainTextEnvVarTypePlainText), Value: cf.F(legacy.UID)}
@@ -125,12 +137,8 @@ func createPagesProject(
 						Browsers:           cf.F(map[string]pages.ProjectDeploymentConfigsProductionBrowserParam{}),
 						CompatibilityDate:  cf.F(time.Now().AddDate(0, 0, -1).Format("2006-01-02")),
 						CompatibilityFlags: cf.F([]string{"nodejs_compat"}),
-						KVNamespaces: cf.F(map[string]pages.ProjectDeploymentConfigsProductionKVNamespaceParam{
-							"kv": {
-								NamespaceID: cf.F(kv.ID),
-							},
-						}),
-						EnvVars: cf.F(envVars),
+						KVNamespaces:       cf.F(kvNamespaces),
+						EnvVars:            cf.F(envVars),
 					}),
 				}),
 			},
@@ -336,7 +344,7 @@ func updatePagesProject(ctx context.Context, projectName string) error {
 func deployPagesProject(
 	ctx context.Context,
 	name string,
-	kvNamespace *kv.Namespace,
+	bindingConfig WorkerBindingConfig,
 	customDomain string,
 	legacy LegacyWorkerConfig,
 ) (
@@ -349,7 +357,7 @@ func deployPagesProject(
 	for {
 		fmt.Printf("\n%s Creating Pages project...\n", title)
 
-		project, err = createPagesProject(ctx, name, kvNamespace, legacy)
+		project, err = createPagesProject(ctx, name, bindingConfig, legacy)
 		if err != nil {
 			failMessage("Failed to create project.")
 			log.Printf("%v\n\n", err)

@@ -12,9 +12,18 @@ import (
 )
 
 type WorkerSource struct {
+	Name       string
+	URL        string
+	IsLegacy   bool
+	IsCustom   bool
+	KVBindings []string
+	VarPrompts []EnvVarPrompt
+}
+
+type EnvVarPrompt struct {
 	Name     string
-	URL      string
-	IsLegacy bool
+	Prompt   string
+	IsSecret bool
 }
 
 var (
@@ -25,9 +34,10 @@ var (
 	VERSION       = "dev"
 	workerSources = []WorkerSource{
 		{
-			Name:     "Original BPB Worker (legacy mode)",
-			URL:      "https://github.com/bia-pain-bache/BPB-Worker-Panel/releases/latest/download/worker.js",
-			IsLegacy: true,
+			Name:       "Original BPB Worker (legacy mode)",
+			URL:        "https://github.com/bia-pain-bache/BPB-Worker-Panel/releases/latest/download/worker.js",
+			IsLegacy:   true,
+			KVBindings: []string{"kv"},
 		},
 		{
 			Name: "iptv_player",
@@ -44,6 +54,15 @@ var (
 		{
 			Name: "iran_proxy",
 			URL:  "https://raw.githubusercontent.com/10ium/free-config/main/worker/iran_proxy.txt",
+		},
+		{
+			Name:       "TG-Proxy_Assistant",
+			URL:        "https://raw.githubusercontent.com/10ium/free-config/refs/heads/main/worker/TG-Proxy_Assistant",
+			KVBindings: []string{"PROXY_KV"},
+			VarPrompts: []EnvVarPrompt{
+				{Name: "BOT_TOKEN", Prompt: "- Please enter your Telegram bot token (created by BotFather): ", IsSecret: true},
+				{Name: "ADMIN_PASSWORD", Prompt: "- Please set an admin password: ", IsSecret: true},
+			},
 		},
 	}
 )

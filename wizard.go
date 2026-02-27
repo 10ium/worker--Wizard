@@ -53,6 +53,13 @@ type LegacyWorkerConfig struct {
 	SubPath     string
 }
 
+type WorkerBindingConfig struct {
+	KVNamespaces map[string]*kv.Namespace
+	KVValues     map[string]map[string]string
+	PlainVars    map[string]string
+	SecretVars   map[string]string
+}
+
 const (
 	CharsetAlphaNumeric      = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 	CharsetSpecialCharacters = "!@#$%^&*()_+[]{}|;:',.<>?"
@@ -457,25 +464,7 @@ func createPanel() {
 		customDomain = response
 	}
 
-	fmt.Printf("\n%s Creating KV namespace...\n", title)
-	var kvNamespace *kv.Namespace
-
-	for {
-		now := time.Now().Format("2006-01-02_15-04-05")
-		kvName := fmt.Sprintf("kv-%s", now)
-		kvNamespace, err = createKVNamespace(ctx, kvName)
-		if err != nil {
-			failMessage("Failed to create KV.")
-			log.Printf("%v\n\n", err)
-			if response := promptUser("- Would you like to try again? (y/n): ", []string{"y", "n"}); strings.ToLower(response) == "n" {
-				return
-			}
-			continue
-		}
-
-		successMessage("KV created successfully!")
-		break
-	}
+	bindingConfig := collectWorkerBindings(ctx, workerSource)
 
 	if err := downloadWorker(workerSource.URL); err != nil {
 		failMessage("Failed to download worker source file")
@@ -487,9 +476,9 @@ func createPanel() {
 	var panel string
 	switch deployType {
 	case DTWorker:
-		panel, err = deployWorker(ctx, projectName, kvNamespace, customDomain, legacyConfig)
+		panel, err = deployWorker(ctx, projectName, bindingConfig, customDomain, legacyConfig)
 	case DTPage:
-		panel, err = deployPagesProject(ctx, projectName, kvNamespace, customDomain, legacyConfig)
+		panel, err = deployPagesProject(ctx, projectName, bindingConfig, customDomain, legacyConfig)
 	}
 
 	if err != nil {
@@ -525,7 +514,7 @@ func selectWorkerSource(deployType DeployType) WorkerSource {
 				continue
 			}
 
-			return WorkerSource{Name: "Custom", URL: customURL}
+			return WorkerSource{Name: "Custom", URL: customURL, IsCustom: true}
 		}
 	}
 
@@ -558,7 +547,7 @@ func selectWorkerSource(deployType DeployType) WorkerSource {
 			continue
 		}
 
-		return WorkerSource{Name: "Custom", URL: customURL}
+		return WorkerSource{Name: "Custom", URL: customURL, IsCustom: true}
 	}
 }
 
@@ -626,6 +615,140 @@ func collectLegacyWorkerConfig(source WorkerSource) LegacyWorkerConfig {
 		break
 	}
 	config.SubPath = subPath
+
+	return config
+}
+
+func promptNonNegativeInt(message string) int {
+	for {
+		response := promptUser(message, nil)
+		if response == "" || response == "0" {
+			return 0
+		}
+
+		value, err := strconv.Atoi(response)
+		if err != nil || value < 0 {
+			failMessage("Please enter a valid non-negative number.")
+			continue
+		}
+		return value
+	}
+}
+
+func createKVNamespaceWithRetry(ctx context.Context, bindingName string) *kv.Namespace {
+	fmt.Printf("\n%s Creating KV namespace for binding %s...\n", title, fmtStr(bindingName, GREEN, true))
+	for {
+		now := time.Now().Format("2006-01-02_15-04-05")
+		kvName := fmt.Sprintf("%s-%s", strings.ToLower(bindingName), now)
+		ns, err := createKVNamespace(ctx, kvName)
+		if err != nil {
+			failMessage("Failed to create KV.")
+			log.Printf("%v\n\n", err)
+			if response := promptUser("- Would you like to try again? (y/n): ", []string{"y", "n"}); strings.ToLower(response) == "n" {
+				return nil
+			}
+			continue
+		}
+		successMessage("KV created successfully!")
+		return ns
+	}
+}
+
+func collectWorkerBindings(ctx context.Context, source WorkerSource) WorkerBindingConfig {
+	config := WorkerBindingConfig{
+		KVNamespaces: map[string]*kv.Namespace{},
+		KVValues:     map[string]map[string]string{},
+		PlainVars:    map[string]string{},
+		SecretVars:   map[string]string{},
+	}
+
+	kvBindings := append([]string{}, source.KVBindings...)
+	varPrompts := append([]EnvVarPrompt{}, source.VarPrompts...)
+
+	if source.IsCustom {
+		fmt.Printf("\n%s Custom worker selected. You can define KV bindings and variables.\n", info)
+		kvCount := promptNonNegativeInt("- How many KV bindings does this worker need? (0 or ENTER to skip): ")
+		for i := 0; i < kvCount; i++ {
+			for {
+				name := strings.TrimSpace(promptUser(fmt.Sprintf("- Enter KV binding name #%d: ", i+1), nil))
+				if name == "" {
+					failMessage("KV binding name cannot be empty.")
+					continue
+				}
+				kvBindings = append(kvBindings, name)
+				kvValueCount := promptNonNegativeInt(fmt.Sprintf("- How many key/value pairs for KV %s? (0 or ENTER to skip): ", name))
+				if kvValueCount > 0 {
+					if _, ok := config.KVValues[name]; !ok {
+						config.KVValues[name] = map[string]string{}
+					}
+					for j := 0; j < kvValueCount; j++ {
+						for {
+							key := strings.TrimSpace(promptUser(fmt.Sprintf("- Enter key #%d for KV %s: ", j+1, name), nil))
+							if key == "" {
+								failMessage("KV key cannot be empty.")
+								continue
+							}
+							value := promptUser(fmt.Sprintf("- Enter value for key %s (press ENTER for empty): ", key), nil)
+							config.KVValues[name][key] = value
+							break
+						}
+					}
+				}
+				break
+			}
+		}
+
+		varCount := promptNonNegativeInt("- How many variables does this worker need? (0 or ENTER to skip): ")
+		for i := 0; i < varCount; i++ {
+			for {
+				secretAns := strings.ToLower(strings.TrimSpace(promptUser(fmt.Sprintf("- Should variable #%d be secret? (y/n): ", i+1), []string{"y", "n"})))
+				name := strings.TrimSpace(promptUser(fmt.Sprintf("- Enter variable name #%d: ", i+1), nil))
+				if name == "" {
+					failMessage("Variable name cannot be empty.")
+					continue
+				}
+				value := promptUser(fmt.Sprintf("- Enter value for %s (press ENTER for empty): ", name), nil)
+				if secretAns == "y" {
+					config.SecretVars[name] = value
+				} else {
+					config.PlainVars[name] = value
+				}
+				break
+			}
+		}
+	}
+
+	for _, kvBinding := range kvBindings {
+		ns := createKVNamespaceWithRetry(ctx, kvBinding)
+		if ns == nil {
+			continue
+		}
+		config.KVNamespaces[kvBinding] = ns
+
+		if values, ok := config.KVValues[kvBinding]; ok {
+			for key, value := range values {
+				if err := upsertKVValueWithRetry(ctx, ns, key, value); err != nil {
+					log.Printf("failed to set KV value for binding %s key %s: %v", kvBinding, key, err)
+				}
+			}
+		}
+	}
+
+	for _, prompt := range varPrompts {
+		for {
+			value := promptUser(prompt.Prompt, nil)
+			if strings.TrimSpace(value) == "" {
+				failMessage(fmt.Sprintf("%s cannot be empty.", prompt.Name))
+				continue
+			}
+			if prompt.IsSecret {
+				config.SecretVars[prompt.Name] = value
+			} else {
+				config.PlainVars[prompt.Name] = value
+			}
+			break
+		}
+	}
 
 	return config
 }

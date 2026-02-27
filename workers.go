@@ -133,14 +133,23 @@ func (sp ScriptUpdateParams) MarshalMultipart() ([]byte, string, error) {
 	return body.Bytes(), writer.FormDataContentType(), nil
 }
 
-func createWorker(ctx context.Context, name string, kv *kv.Namespace, legacy LegacyWorkerConfig) (*workers.ScriptUpdateResponse, error) {
+func createWorker(ctx context.Context, name string, bindingConfig WorkerBindingConfig, legacy LegacyWorkerConfig) (*workers.ScriptUpdateResponse, error) {
 
-	envVars := []map[string]string{
-		{
-			"name":         "kv",
-			"namespace_id": kv.ID,
+	envVars := []map[string]string{}
+	for bindingName, namespace := range bindingConfig.KVNamespaces {
+		envVars = append(envVars, map[string]string{
+			"name":         bindingName,
+			"namespace_id": namespace.ID,
 			"type":         "kv_namespace",
-		},
+		})
+	}
+
+	for name, value := range bindingConfig.PlainVars {
+		envVars = append(envVars, map[string]string{"name": name, "text": value, "type": "plain_text"})
+	}
+
+	for name, value := range bindingConfig.SecretVars {
+		envVars = append(envVars, map[string]string{"name": name, "text": value, "type": "secret_text"})
 	}
 
 	if legacy.Enabled {
@@ -207,6 +216,39 @@ func createKVNamespace(ctx context.Context, ns string) (*kv.Namespace, error) {
 	}
 
 	return res, nil
+}
+
+func upsertKVValue(ctx context.Context, namespaceID, key, value string) error {
+	_, err := cfClient.KV.Namespaces.Values.Update(
+		ctx,
+		namespaceID,
+		key,
+		kv.NamespaceValueUpdateParams{
+			AccountID: cf.F(cfAccount.ID),
+			Value:     cf.F(value),
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("error setting KV value for key %s: %w", key, err)
+	}
+
+	return nil
+}
+
+func upsertKVValueWithRetry(ctx context.Context, namespace *kv.Namespace, key, value string) error {
+	for {
+		if err := upsertKVValue(ctx, namespace.ID, key, value); err != nil {
+			failMessage("Failed to set KV value.")
+			log.Printf("%v\n\n", err)
+			if response := promptUser("- Would you like to try again? (y/n): ", []string{"y", "n"}); strings.ToLower(response) == "n" {
+				return err
+			}
+			continue
+		}
+
+		successMessage(fmt.Sprintf("KV key %s set successfully!", key))
+		return nil
+	}
 }
 
 func enableWorkerSubdomain(ctx context.Context, name string) (*workers.ScriptSubdomainNewResponse, error) {
@@ -330,7 +372,7 @@ func updateWorker(ctx context.Context, name string) error {
 func deployWorker(
 	ctx context.Context,
 	name string,
-	kvNamespace *kv.Namespace,
+	bindingConfig WorkerBindingConfig,
 	customDomain string,
 	legacy LegacyWorkerConfig,
 ) (
@@ -340,7 +382,7 @@ func deployWorker(
 	for {
 		fmt.Printf("\n%s Creating Worker...\n", title)
 
-		_, err := createWorker(ctx, name, kvNamespace, legacy)
+		_, err := createWorker(ctx, name, bindingConfig, legacy)
 		if err != nil {
 			failMessage("Failed to deploy worker.")
 			log.Printf("%v\n\n", err)
